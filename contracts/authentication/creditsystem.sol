@@ -95,7 +95,7 @@ contract CreditSystem is SignerRole{
         public
         view
         returns(bytes, bytes, bool){
-            UseData memory ud = DataSet[hash];  
+            UseData memory ud = DataSet[hash];
             return (ud.identity, ud.issuer, ud.verify);
     }
 
@@ -106,7 +106,7 @@ contract CreditSystem is SignerRole{
         return unregister;
     }
 
-    function verifyBase(address addr) 
+    function verifyBase(address addr)
         public
         onlySigner
         returns(bool){

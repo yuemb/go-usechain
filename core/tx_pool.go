@@ -27,9 +27,9 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/core/state"
 	"github.com/usechain/go-usechain/core/types"
-	"github.com/usechain/go-usechain/contracts/authentication"
 	"github.com/usechain/go-usechain/event"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/metrics"
@@ -599,6 +599,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.IsAuthentication() {
 		//log.Info("Is a authentication tx")
 		err = tx.CheckCertificateSig(from)
+		if err != nil {
+			return ErrInvalidAuthenticationsig
+		}
+	} else if tx.IsRegisterTransaction() {
+		err = tx.CheckCertLegality(from)
 		if err != nil {
 			return ErrInvalidAuthenticationsig
 		}
