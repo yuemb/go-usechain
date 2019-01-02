@@ -20,7 +20,6 @@ import (
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/hex"
-	"github.com/btcsuite/btcd/btcec"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -30,15 +29,106 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
+
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/crypto"
+	"github.com/usechain/go-usechain/crypto/ecies"
 
 	"fmt"
+
 	// "github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/event"
 )
 
 var testSigData = make([]byte, 32)
+
+func TestEncryptDecrypt(t *testing.T) {
+	dir, ks := tmpKeyStore(t, true)
+	defer os.RemoveAll(dir)
+
+	pass := "123456" // not used but required by API
+	a1, _, err := ks.NewMainAccount(pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ks.Unlock(a1, pass)
+	if err != nil {
+		t.Error(err)
+	}
+	pub, err := ks.GetPublicKey(a1)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(fmt.Sprintf("pubstr: %v", pub))
+	pub = pub[2:]
+
+	tmpBytes, err := hex.DecodeString(pub)
+	if err != nil {
+		t.Error(err)
+	}
+	publicKey := crypto.ToECDSAPub(tmpBytes)
+	pubKey := ecies.ImportECDSAPublic(publicKey)
+
+	tmpBytes, err = ecies.Encrypt(crand.Reader, pubKey, []byte("info"), nil, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	infoData := fmt.Sprintf("%x", tmpBytes)
+	fmt.Println(fmt.Sprintf("get encrypt result: %v", infoData))
+
+	pri, err := ks.GetPrivateKey(a1)
+	if err != nil {
+		t.Error(err)
+	}
+	
+	privateKey := ecies.ImportECDSA(pri)
+	encryptText, err := hex.DecodeString(infoData)
+	if err != nil {
+		t.Error(err)
+	}
+	plaintext, err := privateKey.Decrypt(crand.Reader, encryptText, nil, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(fmt.Sprintf("get decrypt result: %v", string(plaintext)))
+}
+func (ks *KeyStore) getPrivateKey(a accounts.Account, pass string) ([]byte, error) {
+	_, key, err := ks.getDecryptedKey(a, pass)
+	if err != nil {
+		return nil, err
+	}
+	bytes1 := crypto.FromECDSA(key.PrivateKey)
+	return bytes1, nil
+}
+func TestNewMainAccount(t *testing.T) {
+	dir, ks := tmpKeyStore(t, true)
+	defer os.RemoveAll(dir)
+
+	pass := "123456" // not used but required by API
+	a1, abAddr, err := ks.NewMainAccount(pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(fmt.Sprintf("account.url:  %v\n account.address:  %v", a1.URL, a1.Address.Hex()))
+	fmt.Println(fmt.Sprintf("abAddr:%v", abAddr))
+
+	privateBytes, err := ks.getPrivateKey(a1, pass)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(fmt.Sprintf("privateKeyBytes: %v", privateBytes))
+
+	_, key, err := ks.getEncryptedKey(a1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(fmt.Sprintf("use getEncryptedKey to get private key: %v", key))
+}
 
 func TestKeyStore(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)

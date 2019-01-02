@@ -21,31 +21,27 @@ func GetRandomString(length int) string {
 
 func TestCAVerify(t *testing.T) {
 	//two params is true,and there is only one file.
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg"})
+	IDKey, err := UserAuthOperation(false, "./testdata/infoFile.txt", []string{"./testdata/img1.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	} else {
-		fmt.Println("two params is true,and there is only one file, so we got register success!")
+		fmt.Println("there is only one file, so we got register success!")
 		fmt.Println("idkey is :", IDKey)
 	}
 
 }
 
-func TestCAVerifyIDIsEmpty(t *testing.T) {
+func TestCAVerifyFileIsEmpty(t *testing.T) {
 	//id is empty but file path is true.
-	_, err := CAVerify("", []string{"./testdata/img1.jpg"})
+	_, err := UserAuthOperation(false, "", []string{"./testdata/img1.jpg"})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("userid empty test, error should not be nil")
 	}
 }
 func TestCAVerifyTwoFile(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
 	//two params is true,more file.
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg", "./testdata/img2.jpg"})
+	IDKey, err := UserAuthOperation(false, "./testdata/infoFile.txt", []string{"./testdata/img1.jpg", "./testdata/img2.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	}
@@ -53,7 +49,7 @@ func TestCAVerifyTwoFile(t *testing.T) {
 }
 func TestCAVerifyParamsIsEmpty(t *testing.T) {
 	//file not found
-	_, err := CAVerify("", []string{""})
+	_, err := UserAuthOperation(false, "", []string{""})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("two empty params test, error:  %v", err)
@@ -61,9 +57,7 @@ func TestCAVerifyParamsIsEmpty(t *testing.T) {
 }
 
 func TestCAVerifyIfOneFileEmpty(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	_, err := CAVerify(userID, []string{"./testdata/img1.jpg", ""})
+	_, err := UserAuthOperation(false, "./testdata/infoFile.txt", []string{"./testdata/img1.jpg", ""})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("two empty params test, error should not be nil")
@@ -71,9 +65,7 @@ func TestCAVerifyIfOneFileEmpty(t *testing.T) {
 }
 
 func TestCAVerifyPhotoIsEmpty(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	_, err := CAVerify(userID, []string{""})
+	_, err := UserAuthOperation(false, "./testdata/infoFile.txt", []string{""})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("photo path is empty test, error should not be nil")
@@ -81,9 +73,7 @@ func TestCAVerifyPhotoIsEmpty(t *testing.T) {
 }
 
 func TestVerifyQuery(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg", "./testdata/img1.jpg"})
+	IDKey, err := UserAuthOperation(false, "./testdata/infoFile.txt", []string{"./testdata/img1.jpg", "./testdata/img1.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	} else {
@@ -91,7 +81,7 @@ func TestVerifyQuery(t *testing.T) {
 	}
 
 	//idkey is exist
-	err = VerifyQuery(IDKey)
+	err = VerifyQuery(IDKey, "2")
 	if err != nil {
 		t.Errorf("error:  %v", err)
 	} else {
@@ -100,7 +90,7 @@ func TestVerifyQuery(t *testing.T) {
 }
 func TestVerifyQueryIDKeyIsNotExist(t *testing.T) {
 	//idkey is not exist
-	err := VerifyQuery("71910e1159398046c281c7bba825dedd")
+	err := VerifyQuery("71910e1159398046c281c7bba825dedd", "2")
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("idkey is not exist,error should not be nil")
@@ -108,7 +98,7 @@ func TestVerifyQueryIDKeyIsNotExist(t *testing.T) {
 }
 func TestVerifyQueryIDIsEmpty(t *testing.T) {
 	//test emtpy idkey
-	err := VerifyQuery("")
+	err := VerifyQuery("", "2")
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("idkey is empty test, error should not be nil")

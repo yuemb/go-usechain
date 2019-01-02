@@ -97,6 +97,8 @@ type cryptoJSON struct {
 	KDF          string                 `json:"kdf"`
 	KDFParams    map[string]interface{} `json:"kdfparams"`
 	MAC          string                 `json:"mac"`
+	RandomKey    string 				`json:"randomkey"`
+	RandomParams cipherparamsJSON 		`json:"randomparams"`
 }
 
 type cipherparamsJSON struct {

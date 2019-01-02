@@ -23,9 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,7 +53,6 @@ import (
 	"encoding/hex"
 
 	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/node"
 
 	"crypto/rand"
 )
@@ -308,8 +305,8 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 }
 
 //Verify will register a user id and prints the infomation about this id after register.
-func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
-	IDKey, err := cacertreg.CAVerify(id, photos)
+func (s *PrivateAccountAPI) Verify(photos []string) (string, error) {
+	IDKey, err := cacertreg.CAVerify(true, "", photos)
 	if err != nil {
 		return "", err
 	}
@@ -318,7 +315,8 @@ func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
 
 //VerifyQuery supports user query their information after register.
 func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
-	err := cacertreg.VerifyQuery(id)
+	chainID := fmt.Sprintf("%s", s.b.ChainConfig().ChainId)
+	err := cacertreg.VerifyQuery(id, chainID)
 	if err != nil {
 		return false, err
 	}
@@ -328,6 +326,14 @@ func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) {
 	acc, err := fetchKeystore(s.am).NewAccount(password)
+	if err == nil {
+		return acc.Address, nil
+	}
+	return common.Address{}, err
+}
+
+func (s *PrivateAccountAPI) NewMainAccount(password string) (common.Address, error) {
+	acc, _, err := fetchKeystore(s.am).NewMainAccount(password)
 	if err == nil {
 		return acc.Address, nil
 	}
@@ -1288,7 +1294,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
-
 	var chainID *big.Int
 	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
 		chainID = config.ChainId
@@ -1617,7 +1622,6 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		s.nonceLock.LockAddr(args.From)
 		defer s.nonceLock.UnlockAddr(args.From)
 	}
-
 	// Set some sanity defaults and terminate on failure
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
@@ -1750,51 +1754,6 @@ func (s *PublicTransactionPoolAPI) SendOneTimeTransaction(ctx context.Context, a
 	return submitTransaction(ctx, s.b, signed)
 }
 
-func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
-	encrypted, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubKey), userData, nil, nil)
-	return encrypted, err
-}
-
-func DecryptUserData(userData []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
-	decrypted, err := ecies.ImportECDSA(privateKey).Decrypt(rand.Reader, userData, nil, nil)
-	return decrypted, err
-}
-
-func GetUserIdFromData(jsonData []byte) string {
-	var data map[string]string
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		log.Error("Unpack data error!")
-	}
-	idType := data["certype"]
-	idNum := data["id"]
-
-	userId := crypto.Keccak256Hash([]byte(idType + "-" + idNum)).Hex()
-	return string(userId)
-}
-
-func GetUserData() []byte {
-	userDataPath := filepath.Join(node.DefaultDataDir(), "userData.json")
-	dataBytes, _ := readData(userDataPath)
-	return dataBytes
-}
-
-// getCert will read user.crt and return certificate string
-func GetCert() string {
-	certPath := filepath.Join(node.DefaultDataDir(), "user.crt")
-	// parse user certificate
-	certBytes, _ := readData(certPath)
-	certAscii := hex.EncodeToString(certBytes[:])
-	return certAscii
-}
-
-func readData(filename string) ([]byte, error) {
-	userData, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Error("Can not read user data", err)
-	}
-	return userData, err
-}
-
 // Added 2018/07/16
 // GetOneTimePubSet query data using random number to select some oneTime acccount's public key from stateDB.
 func (s *PublicBlockChainAPI) GetOneTimePubSet(ctx context.Context, contracrAddress common.Address, PubKeyLen int64, blockNr rpc.BlockNumber) (string, error) {
@@ -1876,9 +1835,8 @@ func (s *PublicBlockChainAPI) MinerAddr(ctx context.Context, addr common.Address
 	return 1
 }
 
-/// SendMainTransaction send  account transaction
+//SendMainTransaction send  account transaction
 func (s *PublicTransactionPoolAPI) SendMainTransaction(ctx context.Context, address common.Address, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
-
 	accountOTA := accounts.Account{Address: address}
 	am := s.b.AccountManager()
 

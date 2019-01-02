@@ -70,11 +70,11 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	verifyCommand = cli.Command{
 		Name:      "verify",
 		Usage:     "Verify address",
-		ArgsUsage: "Verify --id=<id> --photo=<photo> --query=<q>",
+		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q>",
 		Action:    utils.MigrateFlags(verify),
 
 		Flags: []cli.Flag{
-			utils.VerifyIdFlag,
+			utils.VerifyFileFlag,
 			utils.VerifyPhotoFlag,
 			utils.VerifyQueryFlag,
 		},
@@ -397,17 +397,24 @@ func accountImport(ctx *cli.Context) error {
 }
 
 func verify(ctx *cli.Context) error {
-
-	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
+	file := ctx.GlobalString(utils.VerifyFileFlag.Name)
 	photo := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
-	if len(id) > 0 && len(photo) > 0 {
+	if len(file) > 0 && len(photo) > 0 {
 		fileName := strings.Split(photo, ";")
 
-		cacertreg.UserAuthOperation(id, fileName)
+		_, err := cacertreg.UserAuthOperation(false, file, fileName)
+		if err != nil {
+			log.Error("user info register failed:", "err", err)
+			return err
+		}
 	} else if len(q) > 0 {
-		cacertreg.Query(q)
+		err := cacertreg.VerifyQuery(q, "")
+		if err != nil {
+			log.Error("user info query failed:", "err", err)
+			return err
+		}
 	} else {
 		fmt.Println("No parameter found.")
 	}

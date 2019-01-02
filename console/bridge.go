@@ -49,33 +49,24 @@ func newBridge(client *rpc.Client, prompter UserPrompter, printer io.Writer) *br
 //Verify is  user register function
 func (b *bridge) Verify(call otto.FunctionCall) (response otto.Value) {
 	var (
-		id     string
 		photos []string
 		err    error
 	)
-	switch {
 
-	// A single string password was specified, use that
-	case call.Argument(0).IsString() && len(call.ArgumentList) > 1:
-		id, _ = call.Argument(0).ToString()
-		if len(id) == 0 {
-			throwJSException("user id can not be empty.")
-		}
-		for i := 1; i < len(call.ArgumentList); i++ {
-			if call.Argument(i).IsString() {
-				photo, _ := call.Argument(i).ToString()
-				photos = append(photos, photo)
-			} else {
-				throwJSException("filePath must be string type.")
-			}
-		}
-
-	// Otherwise fail with some error
-	default:
-		throwJSException("2 string argument at least")
+	if len(call.ArgumentList) == 0 {
+		throwJSException("1 string argument at least")
 	}
+	for i := 0; i < len(call.ArgumentList); i++ {
+		if call.Argument(i).IsString() {
+			photo, _ := call.Argument(i).ToString()
+			photos = append(photos, photo)
+		} else {
+			throwJSException("filePath must be string type.")
+		}
+	}
+
 	// Password acquired, execute the call and return
-	ret, err := call.Otto.Call("jeth.verify", nil, id, photos)
+	ret, err := call.Otto.Call("jeth.verify", nil, photos)
 	if err != nil {
 		throwJSException(err.Error())
 	}
@@ -142,6 +133,42 @@ func (b *bridge) NewAccount(call otto.FunctionCall) (response otto.Value) {
 	// Password acquired, execute the call and return
 	ret, err := call.Otto.Call("jeth.newAccount", nil, password)
 	if err != nil {
+		throwJSException(err.Error())
+	}
+	return ret
+}
+func (b *bridge) NewMainAccount(call otto.FunctionCall) (response otto.Value) {
+	var (
+		password string
+		confirm  string
+		err      error
+	)
+	switch {
+	// No password was specified, prompt the user for it
+	case len(call.ArgumentList) == 0:
+		if password, err = b.prompter.PromptPassword("Passphrase: "); err != nil {
+			throwJSException(err.Error())
+		}
+		if confirm, err = b.prompter.PromptPassword("Repeat passphrase: "); err != nil {
+			log.Error("enter here,now is error?")
+			throwJSException(err.Error())
+		}
+		if password != confirm {
+			throwJSException("passphrases don't match!")
+		}
+
+	// A single string password was specified, use that
+	case len(call.ArgumentList) == 1 && call.Argument(0).IsString():
+		password, _ = call.Argument(0).ToString()
+
+	// Otherwise fail with some error
+	default:
+		throwJSException("expected 0 or 1 string argument")
+	}
+	// Password acquired, execute the call and return
+	ret, err := call.Otto.Call("jeth.newMainAccount", nil, password)
+	if err != nil {
+		log.Error("now i find the error!")
 		throwJSException(err.Error())
 	}
 	return ret

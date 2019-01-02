@@ -33,10 +33,11 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/x509/pkix"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/log"
 	"math/big"
 	"time"
+
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/log"
 )
 
 // GenerateRSAKeypair generate RSA format public key and private key
@@ -423,11 +424,9 @@ func CheckUserRegisterCert(cert []byte, userId string) error {
 	if err != nil {
 		return err
 	}
-
-	if userCert.Subject.String()[3:] != userId {
+	if userCert.Subject.CommonName[:] != userId {
 		err = errors.New("Not the right cert of this user")
 	}
-
 	return err
 }
 

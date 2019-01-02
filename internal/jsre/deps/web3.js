@@ -5692,8 +5692,8 @@ var methods = function () {
     var verify = new Method({
         name: 'verify',
         call: 'personal_verify',
-        params: 2,
-        inputFormatter: [null, null]
+        params: 1,
+        inputFormatter: [null]
     });
     var verifyQuery = new Method({
         name: 'verifyQuery',
@@ -5749,7 +5749,12 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter]
     });
 
-
+    var newMainAccount = new Method({
+        name:'newMainAccount',
+        call:'personal_newMainAccount',
+        params: 1,
+        inputFormatter: [null]
+    });
     var newABaccount = new Method({
         name:'newABaccount',
         call:'personal_newABaccount',
@@ -5773,6 +5778,7 @@ var methods = function () {
         sign,
         sendTransaction,
         lockAccount,
+        newMainAccount,
         newABaccount,
         generateRSAKeypair,
     ];

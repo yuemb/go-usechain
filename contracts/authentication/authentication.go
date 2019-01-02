@@ -139,7 +139,6 @@ var (
 	}
 )
 
-//get unconfirmed address
 func GetUnconfirmedAddrInterface(self *state.StateDB, contractAddr common.Address, addrLen int64) ([]byte, error) {
 	// generate a query index
 	keyIndex4, _ := ExpandToIndex(OneTimeAddrConfirmedLenIndex, "", 0)

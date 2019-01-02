@@ -315,9 +315,9 @@ var (
 		Usage: "Number of trie node generations to keep in memory",
 		Value: int(state.MaxTrieCacheGen),
 	}
-	VerifyIdFlag = cli.StringFlag{
-		Name:  "id",
-		Usage: "User identity id",
+	VerifyFileFlag = cli.StringFlag{
+		Name:  "file",
+		Usage: "User identity information file",
 	}
 	VerifyPhotoFlag = cli.StringFlag{
 		Name:  "photo",

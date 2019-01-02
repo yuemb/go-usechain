@@ -29,6 +29,8 @@ import (
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/common"
+
+	//"github.com/usechain/go-usechain/commitee/committee"
 	"github.com/usechain/go-usechain/console"
 	"github.com/usechain/go-usechain/eth"
 	"github.com/usechain/go-usechain/ethclient"
@@ -53,7 +55,7 @@ var (
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
-		utils.VerifyIdFlag,
+		utils.VerifyFileFlag,
 		utils.VerifyPhotoFlag,
 		utils.VerifyQueryFlag,
 		utils.UnlockedAccountFlag,

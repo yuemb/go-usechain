@@ -78,7 +78,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.GCModeFlag,
 			utils.EthStatsURLFlag,
 			utils.IdentityFlag,
-			utils.VerifyIdFlag,
+			utils.VerifyFileFlag,
 			utils.VerifyPhotoFlag,
 			utils.VerifyQueryFlag,
 			utils.LightServFlag,
