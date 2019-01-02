@@ -13774,6 +13774,13 @@ module.exports = XMLHttpRequest;
                 inputFormatter: [formatters.inputTransactionFormatter]
             });
 
+            var sendCreditRegisterTransaction = new Method({
+                name: 'sendCreditRegisterTransaction',
+                call: 'use_sendCreditRegisterTransaction',
+                params: 1,
+                inputFormatter: [formatters.inputTransactionFormatter]
+            });
+
             var getOneTimePubSet = new Method({
                 name: 'getOneTimePubSet',
                 call: 'use_getOneTimePubSet',
@@ -13813,6 +13820,7 @@ module.exports = XMLHttpRequest;
                 sendMainTransaction,
                 sendSubTransaction,
                 sendOneTimeTransaction,
+                sendCreditRegisterTransaction,
                 getOneTimePubSet,
                 getUnConfirmedMainInfo,
 
