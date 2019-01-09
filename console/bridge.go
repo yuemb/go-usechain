@@ -49,24 +49,25 @@ func newBridge(client *rpc.Client, prompter UserPrompter, printer io.Writer) *br
 //Verify is  user register function
 func (b *bridge) Verify(call otto.FunctionCall) (response otto.Value) {
 	var (
-		photos []string
-		err    error
+		infoFilePath string
+		photosPath   string
+		err          error
 	)
 
-	if len(call.ArgumentList) == 0 {
-		throwJSException("1 string argument at least")
+	if len(call.ArgumentList) != 0 && len(call.ArgumentList) != 2 {
+		throwJSException("the length of the parameter is incorrect.")
 	}
-	for i := 0; i < len(call.ArgumentList); i++ {
-		if call.Argument(i).IsString() {
-			photo, _ := call.Argument(i).ToString()
-			photos = append(photos, photo)
-		} else {
-			throwJSException("filePath must be string type.")
+	if len(call.ArgumentList) == 2 {
+		if call.Argument(0).IsString() {
+			infoFilePath, _ = call.Argument(0).ToString()
+		}
+		if call.Argument(1).IsString() {
+			photosPath, _ = call.Argument(1).ToString()
 		}
 	}
 
 	// Password acquired, execute the call and return
-	ret, err := call.Otto.Call("jeth.verify", nil, photos)
+	ret, err := call.Otto.Call("jeth.verify", nil, infoFilePath, photosPath)
 	if err != nil {
 		throwJSException(err.Error())
 	}

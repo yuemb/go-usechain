@@ -88,10 +88,25 @@ func fatalf(format string, args ...interface{}) {
 }
 
 //CAVerify user register. If flag is true,it means register by console, else it's cmd.
-func CAVerify(flag bool, filePath string, photos []string) (string, error) {
-	UserInfoInteraction()
+func CAVerify(flag bool, filePath, photos string) (string, error) {
+	if filePath == "" && photos == "" {
+		fmt.Println("Do you want to load file in your default directory? (Y/N)")
+		input, err := console.Stdin.PromptInput("> ")
+		if err != nil {
+			fatalf("get input failed")
+		}
+		if input == "N" {
+			if UserInfoInteraction() {
+				log.Info("Start register")
+			} else {
+				log.Info("Store the file in " + node.DefaultDataDir() + " successfully")
+				return "", nil
+			}
+		}
+	}
 
-	IDKey, err := UserAuthOperation(flag, filePath, photos)
+	file, photo := getStoredFile(filePath, photos)
+	IDKey, err := UserAuthOperation(flag, file, photo)
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +118,11 @@ func UserAuthOperation(flag bool, filePath string, photo []string) (string, erro
 	//read file
 	var file string
 	if flag {
-		file = filepath.Join(node.DefaultDataDir(), "userData.json")
+		if filePath != "" {
+			file = filePath
+		} else {
+			file = filepath.Join(node.DefaultDataDir(), "userData.json")
+		}
 	} else {
 		file = filePath
 	}
@@ -395,8 +414,8 @@ func checkIDcardNum(num string) bool {
 }
 
 //UserInfoInteraction when user enter console to register, user's information must be written to file.
-func UserInfoInteraction() {
-	fmt.Println("What kind of information do you want to verify?")
+func UserInfoInteraction() bool {
+	fmt.Println("What kind of information do you want to verify?(input number like 01)")
 	fmt.Println(IDCard + ".IDCard")
 	fmt.Println(PassPort + ".PassPort")
 	fmt.Println(DriverCard + ".DriverCard")
@@ -409,20 +428,22 @@ func UserInfoInteraction() {
 	fmt.Println(Career + ".Career")
 	fmt.Println(BusinessLicense + ".BusinessLicense")
 	fmt.Println(Other + ".Other")
-	typeInput, err := console.Stdin.PromptInput("choose one:")
+	typeInput, err := console.Stdin.PromptInput("> ")
 	if err != nil {
 		fatalf("Failed to read type: %v", err)
 	}
 	fmt.Println("Please fill in the following information")
-	genInfoMap(typeInput)
+	return genInfoMap(typeInput)
 }
 
-func genInfoMap(typeInput string) {
+func genInfoMap(typeInput string) bool {
 	infoMap := make(map[string]string)
+	photosMap := make(map[string]string)
 	switch typeInput {
 	case IDCard:
 		infoMap["certtype"] = IDCard
 		genIDCardInfo(infoMap)
+		photosMap = genPhotosFile()
 	case PassPort:
 
 	case DriverCard:
@@ -434,7 +455,20 @@ func genInfoMap(typeInput string) {
 	default:
 		fatalf("Information type is not exist")
 	}
-	storeFile(infoMap)
+
+	fmt.Println("What do you want to do next?")
+	fmt.Println("1.register")
+	fmt.Println("2.quit but store info and photos")
+	input, err := console.Stdin.PromptInput("> ")
+	if err != nil {
+		fatalf("Failed to get input")
+	}
+	storeFile(infoMap, "userData")
+	storeFile(photosMap, "photos")
+	if input == "1" {
+		return true
+	}
+	return false
 }
 func getInput(attribute string) string {
 	attr, err := console.Stdin.PromptInput(attribute)
@@ -444,23 +478,142 @@ func getInput(attribute string) string {
 	return attr
 }
 func genIDCardInfo(infoMap map[string]string) {
-	infoMap["id"] = getInput("id:")
-	infoMap["certtype"] = getInput("certtype:")
-	infoMap["name"] = getInput("name:")
-	infoMap["nation"] = getInput("nation:")
-	infoMap["address"] = getInput("address:")
-	infoMap["birthdate"] = getInput("birthdate:")
-	infoMap["ename"] = getInput("ename(opt):")
+	infoMap["id"] = getInput("> id[required]: ")
+	if infoMap["certtype"] == IDCard {
+		for {
+			if checkIDcardNum(infoMap["id"]) {
+				break
+			}
+			fmt.Println("ID number is not correct,re-enter it.")
+			infoMap["id"] = getInput("> id[required]: ")
+		}
+
+	}
+	infoMap["name"] = getInput("> name[required]: ")
+	infoMap["nation"] = getInput("> nation: ")
+	infoMap["address"] = getInput("> address: ")
+	infoMap["birthdate"] = getInput("> birthdate: ")
+	infoMap["ename"] = getInput("> ename: ")
 }
-func storeFile(infoMap map[string]string) {
+
+func genPhotosFile() map[string]string {
+	photoMap := make(map[string]string)
+	count := 1
+	for ; count < 6; count++ {
+		input, err := console.Stdin.PromptInput("> Input image absolute path, or input 'n' to next step: ")
+		if err != nil {
+			fatalf("Failed to get input")
+		}
+		if input == "n" {
+			break
+		} else {
+			flag := isPhotoFile(input)
+			if !flag {
+				fmt.Println("Your enter is not image type")
+				count--
+				continue
+			}
+			key := fmt.Sprintf("photo%v", count)
+			photoMap[key] = input
+		}
+	}
+
+	return photoMap
+}
+
+func storeFile(infoMap map[string]string, fileName string) {
+	if len(infoMap) == 0 {
+		return
+	}
 	infoBytes, err := json.Marshal(infoMap)
 	if err != nil {
 		fatalf("store information file failed: %v", err)
 	}
-	filePath := filepath.Join(node.DefaultDataDir(), "userData.json")
+	filePath := filepath.Join(node.DefaultDataDir(), fileName+".json")
 	err = ioutil.WriteFile(filePath, infoBytes, 0644)
 	if err != nil {
 		fatalf("sotre information file failed: %v", err)
 	}
 	log.Info("user data file saved at " + filePath)
+}
+
+//this function returns user's infoFile path and photo paths
+func getStoredFile(filePath, photosPath string) (string, []string) {
+	var infoPath string
+	var photosSet []string
+	photos := make(map[string]string)
+	//find userData.json if exist
+	absolutePath := findFile(filePath, "userData")
+	if absolutePath == "" {
+		fatalf("User's info file is not exist!!!")
+	} else {
+		infoPath = absolutePath
+	}
+
+	//find photos.json if exist
+	absolutePath = findFile(photosPath, "photos")
+	if absolutePath == "" {
+		fatalf("User's photo file is not exist!!!")
+	}
+	tmpBytes, err := ioutil.ReadFile(absolutePath)
+	if err != nil {
+		fatalf("Read file failed!!!")
+	}
+	err = json.Unmarshal(tmpBytes, &photos)
+	if err != nil {
+		fatalf("Unmarshal json file failed!!!")
+	}
+	for _, v := range photos {
+		photosSet = append(photosSet, v)
+	}
+	return infoPath, photosSet
+}
+
+//jduge if file is exist,if exist returns absolute filepath, else returns empty string
+func findFile(path string, fileName string) string {
+	//Find files
+	isExist := PathExists(path)
+
+	if isExist {
+		return path
+	} else {
+		//find file based on default path
+		filePath := filepath.Join(node.DefaultDataDir(), fileName+".json")
+		isExist = PathExists(filePath)
+		if isExist {
+			return filePath
+		}
+	}
+	return ""
+}
+
+//PathExists
+func PathExists(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if fileInfo.IsDir() {
+			return false
+		}
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err != nil {
+		fatalf("Not sure if the file exists")
+	}
+	return false
+}
+
+func isPhotoFile(str string) bool {
+	tmp := strings.LastIndex(str, ".")
+	if tmp == -1 {
+		return false
+	} else {
+		suffix := str[tmp:]
+		if suffix != ".jpg" && suffix != ".JPG" && suffix != ".jpeg" && suffix != ".JPEG" && suffix != ".png" && suffix != ".PNG" {
+			return false
+		}
+	}
+	return true
 }

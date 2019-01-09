@@ -5692,8 +5692,8 @@ var methods = function () {
     var verify = new Method({
         name: 'verify',
         call: 'personal_verify',
-        params: 1,
-        inputFormatter: [null]
+        params: 2,
+        inputFormatter: [null, null]
     });
     var verifyQuery = new Method({
         name: 'verifyQuery',

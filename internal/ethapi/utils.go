@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
@@ -64,4 +65,23 @@ func getPubKeyFromContract(index string) ([]byte, error) {
 		return nil, err
 	}
 	return pubKeyBytes, nil
+}
+func GetIssuerData(ud UserData, useId common.Address, pubKey string) []byte {
+	cert := GetCert()
+	i := Issuer{Cert: cert, Alg: "RSA", UseId: useId.Str(), PubKey: pubKey, Cdate: "2018-12-26"}
+	data, _ := json.Marshal(i)
+	return data
+}
+
+func GetIdentityData(ud UserData, pubKey *ecdsa.PublicKey) []byte {
+	identity := Identity{}
+	data, _ := json.Marshal(ud)
+	encData, _ := EncryptUserData(data, pubKey)
+	identity.Data = string(encData)
+	identity.Alg = "ECIES"
+	identity.Fpr = crypto.Keccak256Hash([]byte(data)).Hex()
+
+	d, _ := json.Marshal(&identity)
+
+	return d
 }
