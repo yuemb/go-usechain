@@ -106,11 +106,15 @@ func calId(idTarget *big.Int, preSignatureQr []byte, totalMinerNum *big.Int, off
 
 	//id can't be the same as ignoreSlot before
 	var oldNode []int64
-	for i := ignoreSlot; i > 0; i-- {
-		idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
-		idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
-		idTemp = checkIdTargetOrId(state, id, totalMinerNum)
-		oldNode = append(oldNode, idTemp.Int64())
+	if offset.Int64()-1 == 0 {
+		oldNode = append(oldNode, idTarget.Int64())
+	} else {
+		for i := ignoreSlot; i > 0; i-- {
+			idNextTemp := CalQrOrIdNext(idTarget.Bytes(), new(big.Int).Sub(offset, big.NewInt(i)), preSignatureQr)
+			idTemp := new(big.Int).Mod(idNextTemp.Big(), totalMinerNum)
+			idTemp = checkIdTargetOrId(state, id, totalMinerNum)
+			oldNode = append(oldNode, idTemp.Int64())
+		}
 	}
 DONE:
 	for {
