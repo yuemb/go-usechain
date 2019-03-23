@@ -54,6 +54,7 @@ var (
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
 		utils.VerifyIdFlag,
+		utils.VerifyInfoFlag,
 		utils.VerifyPhotoFlag,
 		utils.VerifyQueryFlag,
 		utils.UnlockedAccountFlag,
@@ -69,12 +70,6 @@ var (
 		utils.DashboardPortFlag,
 		utils.DashboardRefreshFlag,
 		utils.DashboardAssetsFlag,
-		utils.EthashCacheDirFlag,
-		utils.EthashCachesInMemoryFlag,
-		utils.EthashCachesOnDiskFlag,
-		utils.EthashDatasetDirFlag,
-		utils.EthashDatasetsInMemoryFlag,
-		utils.EthashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -291,7 +286,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 		var ethereum *eth.Ethereum
 		if err := stack.Service(&ethereum); err != nil {
-			utils.Fatalf("Ethereum service not running: %v", err)
+			utils.Fatalf("Usechain service not running: %v", err)
 		}
 		// Use a reduced number of threads if requested
 		if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {

@@ -21,20 +21,21 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/hex"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/accounts/abi"
-	"github.com/usechain/go-usechain/accounts/cacertreg"
+	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/common/math"
-	"github.com/usechain/go-usechain/consensus/ethash"
+	"github.com/usechain/go-usechain/consensus/rpow"
 	"github.com/usechain/go-usechain/contracts/manager"
 	"github.com/usechain/go-usechain/contracts/minerlist"
 	"github.com/usechain/go-usechain/core"
@@ -43,14 +44,11 @@ import (
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
 	"github.com/usechain/go-usechain/log"
-	"github.com/usechain/go-usechain/node"
 	"github.com/usechain/go-usechain/p2p"
 	"github.com/usechain/go-usechain/params"
 	"github.com/usechain/go-usechain/rlp"
 	"github.com/usechain/go-usechain/rpc"
-	"io/ioutil"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -330,7 +328,7 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 
 //Verify will register a user id and prints the infomation about this id after register.
 func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
-	IDKey, err := cacertreg.CAVerify(id, photos)
+	IDKey, err := ca.CAVerify(id, photos)
 	if err != nil {
 		return "", err
 	}
@@ -339,7 +337,7 @@ func (s *PrivateAccountAPI) Verify(id string, photos []string) (string, error) {
 
 //VerifyQuery supports user query their information after register.
 func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
-	err := cacertreg.VerifyQuery(id)
+	err := ca.VerifyQuery(id)
 	if err != nil {
 		return false, err
 	}
@@ -498,16 +496,16 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 // safely used to calculate a signature from.
 //
 // The hash is calulcated as
-//   keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
+//   keccak256("\x19Usechain Signed Message:\n"${message length}${message}).
 //
 // This gives context to the signed message and prevents signing of transactions.
 func signHash(data []byte) []byte {
-	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), data)
+	msg := fmt.Sprintf("\x19Usechain Signed Message:\n%d%s", len(data), data)
 	return crypto.Keccak256([]byte(msg))
 }
 
 // Sign calculates an Ethereum ECDSA signature for:
-// keccack256("\x19Ethereum Signed Message:\n" + len(message) + message))
+// keccack256("\x19Usechain Signed Message:\n" + len(message) + message))
 //
 // Note, the produced signature conforms to the secp256k1 curve R, S and V values,
 // where the V value will be 27 or 28 for legacy reasons.
@@ -535,7 +533,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // EcRecover returns the address for the account that was used to create the signature.
 // Note, this function is compatible with eth_sign and personal_sign. As such it recovers
 // the address of:
-// hash = keccak256("\x19Ethereum Signed Message:\n"${message length}${message})
+// hash = keccak256("\x19Usechain Signed Message:\n"${message length}${message})
 // addr = ecrecover(hash, signature)
 //
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
@@ -547,7 +545,7 @@ func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Byt
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
 	}
 	if sig[64] != 27 && sig[64] != 28 {
-		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
+		return common.Address{}, fmt.Errorf("invalid Usechain signature (V is not 27 or 28)")
 	}
 	sig[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
 
@@ -1359,7 +1357,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 }
 
 // Sign calculates an ECDSA signature for:
-// keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
+// keccack256("\x19Usechain Signed Message:\n" + len(message) + message).
 //
 // Note, the produced signature conforms to the secp256k1 curve R, S and V values,
 // where the V value will be 27 or 28 for legacy reasons.
@@ -1522,7 +1520,7 @@ func (api *PublicDebugAPI) SeedHash(ctx context.Context, number uint64) (string,
 	if block == nil {
 		return "", fmt.Errorf("block #%d not found", number)
 	}
-	return fmt.Sprintf("0x%x", ethash.SeedHash(number)), nil
+	return fmt.Sprintf("0x%x", rpow.SeedHash(number)), nil
 }
 
 // PrivateDebugAPI is the collection of Ethereum APIs exposed over the private
@@ -1608,7 +1606,7 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
-//var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
+// var B = "0x043b470fd13cfb408c4a4131aa96224dd701432808816025f852d9315e59e08f63a6f324c510f3ba0e226a7dcf1c44233a333b069efdafe532c69b3430b5db57f5"
 
 func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
@@ -1631,7 +1629,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 		return common.Hash{}, err
 	}
 
-	d := GetUserData()
+	d := ca.GetUserData("userData.json")
 	ud := types.NewUserData()
 	json.Unmarshal(d, &ud)
 
@@ -1658,7 +1656,7 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	}
 	committeePub := crypto.GenerateCreditPubKey(pubStr, priv)
 
-	key := crypto.Keccak256Hash([]byte(ud.CertType + "-" + ud.Id)).Bytes()
+	key := ud.IdBytes()
 	hashKey := [32]byte{}
 	copy(hashKey[:], key)
 	identity := GetIdentityData(ud, committeePub)
@@ -1683,24 +1681,31 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 }
 
 func GetIssuerData(ud *types.UserData, useId common.Address, pubKey string) []byte {
-	cert := GetCert()
+	cert, _ := ca.GetUserCert("user.crt")
+	pemBlock, _ := pem.Decode(cert)
+	parsed, _ := x509.ParseCertificate(pemBlock.Bytes)
 	issuer := types.NewIssuer()
-	issuer.Cert = cert
-	issuer.Alg = "RSA"
+
+	issuer.Cert = string(cert[:])
+	issuer.Alg = parsed.SignatureAlgorithm.String()
 	issuer.UseId = useId.Str()
-	issuer.PubKey = pubKey
-	issuer.Cdate = "2018-12-26"
+	issuer.PubKey = parsed.PublicKey
+	issuer.Cdate = parsed.NotBefore.String()
+	issuer.Edate = parsed.NotAfter.String()
+
 	data, _ := json.Marshal(issuer)
 	return data
 }
 
 func GetIdentityData(ud *types.UserData, pubKey *ecdsa.PublicKey) []byte {
 	identity := types.NewIdentity()
-	data, _ := json.Marshal(ud)
+	data, _ := ud.Marshal()
 	encData, _ := EncryptUserData(data, pubKey)
 	identity.Data = hexutil.Encode(encData)
 	identity.Alg = "ECIES"
-	identity.Fpr = crypto.Keccak256Hash([]byte(data)).Hex()
+	identity.Fpr = ud.FingerPrint()
+	identity.Nation = ud.Nation
+	identity.CertType = ud.CertType
 
 	d, _ := json.Marshal(&identity)
 
@@ -1723,29 +1728,6 @@ func GetABIBytesData(ABI string, name string, args ...interface{}) []byte {
 func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
 	encrypted, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubKey), userData, nil, nil)
 	return encrypted, err
-}
-
-func GetUserData() []byte {
-	userDataPath := filepath.Join(node.DefaultDataDir(), "userData.json")
-	dataBytes, _ := readData(userDataPath)
-	return dataBytes
-}
-
-// getCert will read user.crt and return certificate string
-func GetCert() string {
-	certPath := filepath.Join(node.DefaultDataDir(), "user.crt")
-	// parse user certificate
-	certBytes, _ := readData(certPath)
-	certAscii := hex.EncodeToString(certBytes[:])
-	return certAscii
-}
-
-func readData(filename string) ([]byte, error) {
-	userData, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Error("Can not read user data", err)
-	}
-	return userData, err
 }
 
 // QueryAddr returns the address whether already been credited

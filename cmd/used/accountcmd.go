@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/usechain/go-usechain/accounts"
-	"github.com/usechain/go-usechain/accounts/cacertreg"
+	"github.com/usechain/go-usechain/accounts/ca"
 	"github.com/usechain/go-usechain/accounts/keystore"
 	"github.com/usechain/go-usechain/cmd/utils"
 	"github.com/usechain/go-usechain/console"
@@ -47,7 +47,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 			{
 
 				Name:      "import",
-				Usage:     "Import Ethereum presale wallet",
+				Usage:     "Import Usechain presale wallet",
 				ArgsUsage: "<keyFile>",
 				Action:    utils.MigrateFlags(importWallet),
 				Category:  "ACCOUNT COMMANDS",
@@ -70,10 +70,11 @@ passwordfile as argument containing the wallet password in plaintext.`,
 	verifyCommand = cli.Command{
 		Name:      "verify",
 		Usage:     "Verify address",
-		ArgsUsage: "Verify --id=<id> --photo=<photo> --query=<q>",
+		ArgsUsage: "Verify --info=<info> --id=<id> --photo=<photo> --query=<q>",
 		Action:    utils.MigrateFlags(verify),
 
 		Flags: []cli.Flag{
+			utils.VerifyInfoFlag,
 			utils.VerifyIdFlag,
 			utils.VerifyPhotoFlag,
 			utils.VerifyQueryFlag,
@@ -398,16 +399,19 @@ func accountImport(ctx *cli.Context) error {
 
 func verify(ctx *cli.Context) error {
 
-	id := ctx.GlobalString(utils.VerifyIdFlag.Name)
-	photo := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
+	infoFile := ctx.GlobalString(utils.VerifyInfoFlag.Name)
+	photos := ctx.GlobalString(utils.VerifyPhotoFlag.Name)
 	q := ctx.GlobalString(utils.VerifyQueryFlag.Name)
 
-	if len(id) > 0 && len(photo) > 0 {
-		fileName := strings.Split(photo, ";")
-
-		cacertreg.UserAuthOperation(id, fileName)
+	if len(infoFile) > 0 && len(photos) > 0 {
+		p := strings.Split(photos, ";")
+		ca.UserAuthOperation(infoFile, p)
 	} else if len(q) > 0 {
-		cacertreg.Query(q)
+		ca.Query(q)
+	} else if len(infoFile) == 0 {
+		w := ca.MakeWizard("")
+		w.Run()
+		return nil
 	} else {
 		fmt.Println("No parameter found.")
 	}

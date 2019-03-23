@@ -1,4 +1,4 @@
-package cacertreg
+package ca
 
 import (
 	"fmt"
